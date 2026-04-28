@@ -722,8 +722,7 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
   // ---------- Form submit -> Cloudflare Worker -> Postmark ----------
-  // Replace WORKER_URL after deploying the Worker (see worker.js + DEPLOY.md).
-  const WORKER_URL = 'https://REPLACE-WITH-YOUR-WORKER-URL.workers.dev/';
+  const WORKER_URL = 'https://shiphub-helpdesk-api.shane-995.workers.dev/';
 
   const submitBtn = document.getElementById('submitBtn');
   const ORIGINAL_BTN_LABEL = submitBtn.textContent;
