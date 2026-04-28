@@ -13,28 +13,32 @@
  *   TO_EMAIL        (Variable) — destination, e.g. "support@shiphub.ai"
  */
 
-const ALLOWED_ORIGIN = 'https://help.shiphub.ai';
+const ALLOWED_ORIGINS = [
+  'https://help.shiphub.ai',
+  'https://paretotech.github.io',
+];
 const POSTMARK_API = 'https://api.postmarkapp.com/email';
 
 export default {
   async fetch(request, env) {
-    if (request.method === 'OPTIONS') return cors(new Response(null, { status: 204 }));
-    if (request.method !== 'POST') return cors(json({ error: 'Method not allowed' }, 405));
+    const origin = request.headers.get('Origin') || '';
+    if (request.method === 'OPTIONS') return cors(new Response(null, { status: 204 }), origin);
+    if (request.method !== 'POST') return cors(json({ error: 'Method not allowed' }, 405), origin);
 
     let body;
     try {
       body = await request.json();
     } catch {
-      return cors(json({ error: 'Invalid JSON' }, 400));
+      return cors(json({ error: 'Invalid JSON' }, 400), origin);
     }
 
     const { name, email, subject, message, _trap } = body || {};
 
     // Honeypot — bots fill every field; humans don't see this one.
-    if (_trap) return cors(json({ ok: true }));
+    if (_trap) return cors(json({ ok: true }), origin);
 
     if (!name || !email || !subject || !message) {
-      return cors(json({ error: 'Missing required fields' }, 400));
+      return cors(json({ error: 'Missing required fields' }, 400), origin);
     }
     if (
       typeof name !== 'string' || name.length > 200 ||
@@ -42,10 +46,10 @@ export default {
       typeof subject !== 'string' || subject.length > 200 ||
       typeof message !== 'string' || message.length > 5000
     ) {
-      return cors(json({ error: 'Invalid input' }, 400));
+      return cors(json({ error: 'Invalid input' }, 400), origin);
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return cors(json({ error: 'Invalid email address' }, 400));
+      return cors(json({ error: 'Invalid email address' }, 400), origin);
     }
 
     const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
@@ -93,16 +97,19 @@ export default {
     if (!pmResp.ok) {
       const detail = await pmResp.text().catch(() => '');
       console.log('Postmark error', pmResp.status, detail);
-      return cors(json({ error: 'Email service error' }, 502));
+      return cors(json({ error: 'Email service error' }, 502), origin);
     }
 
-    return cors(json({ ok: true }));
+    return cors(json({ ok: true }), origin);
   },
 };
 
-function cors(resp) {
+function cors(resp, origin) {
   const r = new Response(resp.body, resp);
-  r.headers.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    r.headers.set('Access-Control-Allow-Origin', origin);
+    r.headers.set('Vary', 'Origin');
+  }
   r.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   r.headers.set('Access-Control-Allow-Headers', 'Content-Type');
   r.headers.set('Access-Control-Max-Age', '86400');
