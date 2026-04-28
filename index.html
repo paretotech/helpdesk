@@ -711,8 +711,8 @@
   });
   closeBtn.addEventListener('click', closeModal);
   cancelBtn.addEventListener('click', closeModal);
-  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+  // Intentionally no backdrop-click or Escape close — users must use the X
+  // or Cancel button so they don't lose a half-written message by accident.
 
   // ---------- Form submit -> Cloudflare Worker -> Postmark ----------
   const WORKER_URL = 'https://shiphub-helpdesk-api.shane-995.workers.dev/';
