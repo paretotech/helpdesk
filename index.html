@@ -594,26 +594,42 @@
       <button class="modal-close" id="modalClose" aria-label="Close">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
-      <h3>Contact Support</h3>
-      <p class="sub">Tell us what's going on and we'll get back to you within one business day.</p>
-      <form id="contactForm">
-        <label for="cName">Your name</label>
-        <input id="cName" type="text" required placeholder="Jane Doe">
+      <div id="contactFormWrap">
+        <h3>Contact Support</h3>
+        <p class="sub">Tell us what's going on and we'll get back to you within one business day.</p>
+        <form id="contactForm" novalidate>
+          <label for="cName">Your name</label>
+          <input id="cName" type="text" required placeholder="Jane Doe" maxlength="200">
 
-        <label for="cEmail">Your email</label>
-        <input id="cEmail" type="email" required placeholder="you@company.com">
+          <label for="cEmail">Your email</label>
+          <input id="cEmail" type="email" required placeholder="you@company.com" maxlength="200">
 
-        <label for="cSubject">Subject</label>
-        <input id="cSubject" type="text" required placeholder="e.g. Question about pickup scheduling">
+          <label for="cSubject">Subject</label>
+          <input id="cSubject" type="text" required placeholder="e.g. Question about pickup scheduling" maxlength="200">
 
-        <label for="cMessage">Message</label>
-        <textarea id="cMessage" required placeholder="Describe your issue or question…"></textarea>
+          <label for="cMessage">Message</label>
+          <textarea id="cMessage" required placeholder="Describe your issue or question…" maxlength="5000"></textarea>
 
-        <div class="modal-actions">
-          <button type="button" class="btn-ghost" id="modalCancel">Cancel</button>
-          <button type="submit" class="btn-primary">Send to support@shiphub.ai →</button>
+          <!-- honeypot: invisible to humans, filled by bots -->
+          <input type="text" id="cTrap" name="_trap" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" aria-hidden="true">
+
+          <div id="formError" style="display:none;margin-top:14px;padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;color:#991B1B;border-radius:8px;font-size:13px;"></div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-ghost" id="modalCancel">Cancel</button>
+            <button type="submit" class="btn-primary" id="submitBtn">Send to support@shiphub.ai →</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="contactSuccess" style="display:none;text-align:center;padding:8px 0 4px;">
+        <div style="width:56px;height:56px;border-radius:50%;background:var(--green-50);color:var(--green-600);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
         </div>
-      </form>
+        <h3 style="margin-bottom:6px;">Message sent</h3>
+        <p class="sub" style="margin-bottom:20px;">Thanks — our team will reply within one business day.</p>
+        <button type="button" class="btn-primary" id="successClose">Close</button>
+      </div>
     </div>
   </div>
 </div>
@@ -669,13 +685,26 @@
   const topLink = document.getElementById('topContact');
   const closeBtn = document.getElementById('modalClose');
   const cancelBtn = document.getElementById('modalCancel');
+  const successCloseBtn = document.getElementById('successClose');
+  const formWrap = document.getElementById('contactFormWrap');
+  const successWrap = document.getElementById('contactSuccess');
+  const formError = document.getElementById('formError');
+
+  function resetModal() {
+    formWrap.style.display = '';
+    successWrap.style.display = 'none';
+    formError.style.display = 'none';
+    document.getElementById('contactForm').reset();
+  }
 
   function openModal(prefillSubject) {
+    resetModal();
     modal.classList.add('show');
     if (prefillSubject) document.getElementById('cSubject').value = prefillSubject;
     setTimeout(() => document.getElementById('cName').focus(), 50);
   }
   function closeModal() { modal.classList.remove('show'); }
+  successCloseBtn.addEventListener('click', closeModal);
 
   openBtn.addEventListener('click', () => openModal());
   inlineLink.addEventListener('click', e => { e.preventDefault(); openModal(); });
@@ -692,19 +721,62 @@
   modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-  // ---------- Form submit -> mailto: ----------
-  document.getElementById('contactForm').addEventListener('submit', e => {
-    e.preventDefault();
-    const name = document.getElementById('cName').value.trim();
-    const email = document.getElementById('cEmail').value.trim();
-    const subject = document.getElementById('cSubject').value.trim();
-    const message = document.getElementById('cMessage').value.trim();
+  // ---------- Form submit -> Cloudflare Worker -> Postmark ----------
+  // Replace WORKER_URL after deploying the Worker (see worker.js + DEPLOY.md).
+  const WORKER_URL = 'https://REPLACE-WITH-YOUR-WORKER-URL.workers.dev/';
 
-    const body = `${message}\n\n— ${name}\n${email}`;
-    const mailto = `mailto:support@shiphub.ai?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.location.href = mailto;
-    setTimeout(closeModal, 200);
+  const submitBtn = document.getElementById('submitBtn');
+  const ORIGINAL_BTN_LABEL = submitBtn.textContent;
+
+  document.getElementById('contactForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    formError.style.display = 'none';
+
+    const payload = {
+      name: document.getElementById('cName').value.trim(),
+      email: document.getElementById('cEmail').value.trim(),
+      subject: document.getElementById('cSubject').value.trim(),
+      message: document.getElementById('cMessage').value.trim(),
+      _trap: document.getElementById('cTrap').value,
+    };
+
+    if (!payload.name || !payload.email || !payload.subject || !payload.message) {
+      showError('Please fill in every field.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+      showError('That email address doesn\'t look right.');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Sending…';
+
+    try {
+      const resp = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data.ok) {
+        showError(data.error || 'Couldn\'t send. Please try again or email support@shiphub.ai directly.');
+        return;
+      }
+      formWrap.style.display = 'none';
+      successWrap.style.display = '';
+    } catch (err) {
+      showError('Network error. Please try again or email support@shiphub.ai directly.');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = ORIGINAL_BTN_LABEL;
+    }
   });
+
+  function showError(msg) {
+    formError.textContent = msg;
+    formError.style.display = '';
+  }
 </script>
 
 </body>
