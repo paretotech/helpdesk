@@ -452,7 +452,6 @@
   <div class="nav-links">
     <a href="https://shiphub.ca/#how-it-works">How It Works</a>
     <a href="https://shiphub.ca/#features">Features</a>
-    <a href="#" id="topContact">Contact</a>
   </div>
   <div class="nav-actions">
     <a href="https://shiphub.ai/login" class="btn-ghost">Login</a>
@@ -497,7 +496,7 @@
 <!-- ========== FAQ LIST ========== -->
 <section class="faq-section">
   <h2>Common Questions</h2>
-  <p class="subtitle">Click any question to expand. Can't find what you need? <a href="#" id="openContactInline" style="color:var(--blue-600);font-weight:600;">Email our support team</a>.</p>
+  <p class="subtitle">Click any question to expand.</p>
 
   <div id="faqList">
     <!-- Getting Started -->
@@ -574,7 +573,6 @@
   <h2>Still need help?</h2>
   <p>Our team replies to every message within one business day.</p>
   <button class="btn-primary btn-large" id="openContactBtn">Contact Support →</button>
-  <span class="alt">Or email us directly at <a href="mailto:support@shiphub.ai">support@shiphub.ai</a></span>
 </section>
 
 <!-- ========== FOOTER ========== -->
@@ -583,7 +581,6 @@
   <div>
     <a href="https://shiphub.ca/">Home</a>
     <a href="https://shiphub.ca/#features">Features</a>
-    <a href="mailto:support@shiphub.ai">support@shiphub.ai</a>
   </div>
 </footer>
 
@@ -680,9 +677,7 @@
   // ---------- Modal ----------
   const modal = document.getElementById('modal');
   const openBtn = document.getElementById('openContactBtn');
-  const inlineLink = document.getElementById('openContactInline');
   const noResLink = document.getElementById('emailFromNoResults');
-  const topLink = document.getElementById('topContact');
   const closeBtn = document.getElementById('modalClose');
   const cancelBtn = document.getElementById('modalCancel');
   const successCloseBtn = document.getElementById('successClose');
@@ -707,12 +702,10 @@
   successCloseBtn.addEventListener('click', closeModal);
 
   openBtn.addEventListener('click', () => openModal());
-  inlineLink.addEventListener('click', e => { e.preventDefault(); openModal(); });
   noResLink.addEventListener('click', e => {
     e.preventDefault();
     openModal(searchInput.value ? `Help with: ${searchInput.value}` : '');
   });
-  topLink.addEventListener('click', e => { e.preventDefault(); openModal(); });
   document.querySelectorAll('.open-contact-link').forEach(el => {
     el.addEventListener('click', e => { e.preventDefault(); openModal(); });
   });
